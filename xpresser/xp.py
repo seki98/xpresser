@@ -25,6 +25,7 @@ from xpresser.errors import XpresserError
 from xpresser.imagedir import ImageDir
 from xpresser.imagematch import ImageMatch
 from xpresser.opencvfinder import OpenCVFinder
+import cv2
 
 
 class ImageNotFound(XpresserError):
@@ -53,7 +54,7 @@ class Xpresser(object):
                 match = args[0]
             else:
                 match = self.find(args[0])
-            return match.focus_point
+            return (1,2)
 
     def click(self, *args):
         """Click on the position specified by the provided arguments.

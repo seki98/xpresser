@@ -17,9 +17,10 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
-import SimpleCV
 from xpresser.imagematch import ImageMatch
-
+import cv2
+import numpy
+from matplotlib import pyplot as plt
 
 FILTER_MARGIN = 25 # %
 
@@ -38,36 +39,64 @@ class OpenCVFinder(object):
     def _load_image(self, image):
         if "opencv_image" not in image.cache:
             if image.filename is not None:
-                opencv_image = SimpleCV.Image(image.filename)
+                opencv_image = cv2.imread(image.filename)
             elif image.array is not None:
                 opencv_image = image.array
             else:
                 raise RuntimeError("Oops. Can't load image.")
             image.cache["opencv_image"] = opencv_image
-            image.width = opencv_image.width
-            image.height = opencv_image.height
+            image.width = image.width
+            image.height = image.height
         return image.cache["opencv_image"]
 
     def _find(self, screen_image, area_image, best_match=False):
         source = self._load_image(screen_image)
         template = self._load_image(area_image)
         results = []
-        matches = source.findTemplate(template, method="CCOEFF_NORM")
-        if matches:
-            for m in [m for m in matches if m.quality >= area_image.similarity]:
-                results.append(
-                    ImageMatch(area_image, m.x, m.y, m.quality))
-                if best_match and m.quality == 1.0:
-                    return [results[-1]]
+        cv2.waitKey(1000)
+        matches = cv2.matchTemplate(source, template, 5)
 
-        x_margin = int(FILTER_MARGIN/100.0 * area_image.width)
-        y_margin = int(FILTER_MARGIN/100.0 * area_image.height)
+        min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(matches)
 
-        results = self._filter_nearby_positions(results, x_margin, y_margin)
-        if results:
-            results.sort(key=lambda match: -match.similarity)
+        # If the method is TM_SQDIFF or TM_SQDIFF_NORMED, take minimum
+        top_left = max_loc
+        w, h = 800,640
+        bottom_right = (top_left[0] + w, top_left[1] + h)
 
-        return results
+        #cv2.rectangle(source, top_left, bottom_right, 255, 2)
+
+        #plt.subplot(121), plt.imshow(template, cmap='gray')
+        #plt.title('Matching Result'), plt.xticks([]), plt.yticks([])
+        #plt.subplot(122), plt.imshow(source, cmap='gray')
+        #plt.title('Detected Point'), plt.xticks([]), plt.yticks([])
+
+        #plt.show()
+
+
+        res = cv2.matchTemplate(source, template, cv2.TM_CCOEFF_NORMED)
+        threshold = 0.8
+        loc = numpy.where(res >= threshold)
+        for pt in zip(*loc[::-1]):
+            cv2.rectangle(source, pt, (pt[0] + w, pt[1] + h), (0, 0, 255), 2)
+
+        print(loc)
+        cv2.imwrite('res.png', source)
+
+
+        #if matches is not None:
+        #    for m in [m for m in matches if 0.99 >= area_image.similarity]:
+        #        results.append(
+        #            ImageMatch(area_image, m.x, m.y, m.quality))
+        #        if best_match and m.quality == 1.0:
+        #            return [results[-1]]
+        #x_margin = int(FILTER_MARGIN/100.0 * 860)
+        #y_margin = int(FILTER_MARGIN/100.0 * 600)
+
+        #results = self._filter_nearby_positions(results, x_margin, y_margin)
+        #if results:
+        #    results.sort(key=lambda match: -match.similarity)
+
+        return loc
 
     def _filter_nearby_positions(self, matches, x_margin, y_margin):
         """Remove nearby positions by taking the best one.

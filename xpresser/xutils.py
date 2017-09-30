@@ -17,8 +17,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+
+import gi
+gi.require_version('Gdk', '3.0')
+
+import mss
+import numpy
 import pyatspi
-import SimpleCV
+import cv2
 import types
 import time
 from xpresser.image import Image
@@ -78,6 +84,9 @@ def take_screenshot():
     surface = Gdk.cairo_create(window).get_target()
     with NamedTemporaryFile(prefix='xpresser_', suffix='.png') as f:
         surface.write_to_png(f.name)
-        opencv_image = SimpleCV.Image(f.name)
-    return Image("screenshot", array=opencv_image,
-                 width=opencv_image.width, height=opencv_image.height)
+        with mss.mss() as sct:
+            numpy.array(sct.shot(output="monitor-1.png"))
+            opencv_image = cv2.imread('monitor-1.png')
+            height, width, channels = opencv_image.shape
+    return Image("monitor-1.png", array=opencv_image,
+                 width=width, height=height)
